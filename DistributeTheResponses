@@ -1,0 +1,163 @@
+function onOpen() {
+  var spreadsheet = SpreadsheetApp.getActive();
+  var menuItems = [
+    {name: 'Transfer New Student Records', functionName: 'transferAllNew'},
+    {name: 'Transfer New Staff Records', functionName: 'transferAllNewStaff'},
+    {name: "Create CSV File", functionName: "saveAsCSV"}
+  ];
+  spreadsheet.addMenu('Transfer to School Sheets', menuItems);
+}
+
+function transferAllNew() {
+  // var dataRange = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("ALL").getDataRange();
+  var sss = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("ALL");
+  var dataRange = sss.getRange(1,1,sss.getLastRow(),16);
+  Logger.log("Data Range 1: " + dataRange.getA1Notation());
+  // Logger.log("Data Range 2: " + dataRange2.getA1Notation());
+  var data = dataRange.getValues();
+  var headers = data[0];
+
+  for (var row=1; row < data.length; row++) {
+    var e = {};
+    e.values = data[row].filter(Boolean);
+    e.range = dataRange.offset(row,0,1,data[0].length);
+    e.namedValues = {};
+    Logger.log("Row: " + row + " E: " + e.values);
+    for (var col=0; col<headers.length; col++) {
+      e.namedValues[headers[col]] = [data[row][col]];
+    }
+        Logger.log("Column: " + col + " E: " + e.namedValues);
+    transferRow(e);
+  }
+}
+
+function transferRow(r) {
+  var sss = SpreadsheetApp.openById('___________________'); //source data to be distributed gID
+  var ss = sss.getSheetByName('ALL');
+  var range = r.range;
+  var rowNum = range.getRow();
+  var confirmCell = ss.getRange(rowNum,16);
+
+// If there isn't already a value in the "Transferred" column go ahead and transfer this new line.
+  if (confirmCell.isBlank() && range.getNumRows() <= 1) {
+      confirmCell.setValue(copyRange(range));
+  }
+}
+
+function copyRange(d) {
+  var sourceCols = d.getNumColumns();
+  var data = d.getValues();
+  var school = data[0][3];
+  var timezone = Session.getScriptTimeZone();
+  var timestamp_format = "M/dd/yyyy H:mm:ss";
+  var date = Utilities.formatDate(new Date(), timezone, timestamp_format);
+
+  var schoolID = selectSchoolSheet(school);
+if (schoolID == "School Not Found") {
+  return "School Not Found";
+}
+  var tss = SpreadsheetApp.openById(schoolID);
+  var ts = tss.getSheetByName('Sheet1');
+
+  ts.getRange(ts.getLastRow()+1,1,1,sourceCols).setValues(data);
+
+return ("Transferred on " + date);
+}
+
+function selectSchoolSheet(name) { //identify the destination sheet id by comparing to reference table
+  var ss = SpreadsheetApp.openById('______________________'); //reference table gID
+  var sss = ss.getSheetByName('Guide');
+  var last = sss.getLastRow();
+  var data = sss.getRange(1,1,last,24).getValues();// create an array of data from columns A to X
+  // var valA = name;
+
+  for(nn=0; nn<data.length; ++nn){
+    if (data[nn][0]==name){break} ;
+      }
+
+if (nn == data.length) {
+  return "School Not Found"
+  } else {  //if there is an error, return School Not Found as the value
+  return data[nn][23]} ;
+}
+
+// function sendAQuickEmail(ee) {
+  //Build in a system to send a reminder email on update!
+// }
+
+//          //          //          //
+//          //          //          //
+//          //          //          //
+//-----------NOW THE STAFF----------//
+//          //          //          //
+//          //          //          //
+//          //          //          //
+
+function transferAllNewStaff() {
+  var dataRange = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("STAFF").getDataRange();
+  var data = dataRange.getValues();
+  var headers = data[0];
+
+  for (var row=1; row < data.length; row++) {
+    var e = {};
+    e.values = data[row].filter(Boolean);
+    e.range = dataRange.offset(row,0,1,data[0].length);
+    e.namedValues = {};
+    Logger.log("Row: " + row + " E: " + e.values);
+    for (var col=0; col<headers.length; col++) {
+      e.namedValues[headers[col]] = [data[row][col]];
+    }
+        Logger.log("Column: " + col + " E: " + e.namedValues);
+    transferStaffRow(e);
+  }
+}
+
+function transferStaffRow(r) {
+  var sss = SpreadsheetApp.openById('_________________________');  //Add source gID here
+  var ss = sss.getSheetByName('STAFF');
+  var range = r.range;
+  var rowNum = range.getRow();
+  var confirmCell = ss.getRange(rowNum,12);
+
+// If there isn't already a value in the "Transferred" column go ahead and transfer this new line.
+  if (confirmCell.isBlank() && range.getNumRows() <= 1) {
+      confirmCell.setValue(copyStaffRange(range));
+  }
+}
+
+function copyStaffRange(d) {
+  var sourceCols = d.getNumColumns();
+  var data = d.getValues();
+  var location = data[0][3];
+  var timezone = Session.getScriptTimeZone();
+  var timestamp_format = "M/dd/yyyy H:mm:ss";
+  var date = Utilities.formatDate(new Date(), timezone, timestamp_format);
+
+  var schoolID = selectSchoolSheetStaff(location);
+if (schoolID == "School Not Found") {
+  return "School Not Found";
+}
+Logger.log("School ID: " + schoolID);
+  var tss = SpreadsheetApp.openById(schoolID);
+  var ts = tss.getSheetByName('STAFF');
+
+  ts.getRange(ts.getLastRow()+1,1,1,sourceCols).setValues(data);
+
+return ("Transferred on " + date);
+}
+
+function selectSchoolSheetStaff(name) { //identify the destination sheet id by comparing to reference table
+  var ss = SpreadsheetApp.openById('____________________'); //This is the reference table link. Makes sure there is some validation between the form and this sheet
+  var sss = ss.getSheetByName('Links to School Specific Sheets');
+  var last = sss.getLastRow();
+  var data = sss.getRange(1,1,last,9).getValues(); // create an array of data from columns A to X
+
+  for(nn=0; nn<data.length; ++nn){
+    if (data[nn][0]==name){break} ;
+      }
+
+if (nn == data.length) {
+  return "School Not Found"
+  } else {  //if there is an error, return School Not Found as the value
+  return data[nn][8]} ;
+}
