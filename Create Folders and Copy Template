@@ -1,0 +1,73 @@
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('SRSS Actions')
+    .addItem('Make Folders', 'makeFolders')
+    .addItem('Get Last Row', 'getLastRowSpecial')
+    .addToUi();
+};
+
+function makeFolders() {
+ var sheet = SpreadsheetApp.getActive().getSheetByName("Guide");
+ var data = sheet.getDataRange().getValues();
+ var checkRangeA = sheet.getRange("A2:A").getValues();
+ var checkRangeB = sheet.getRange("B2:B").getValues();
+ var lastRow = Math.max(getLastRowSpecial(checkRangeA),getLastRowSpecial(checkRangeB));
+
+  //**Check duplicates - need a unique identifier.
+ checkForBlankSchoolValues(data)
+
+  //**What if no ID/Abbrev? What if no dir?**
+  //**Prompts user to create unique identifier ID/Abbrev
+
+  for( i = 2; i < lastRow + 1; i++){
+  var parentFolder=DriveApp.getFolderById(data[i][22]);
+  var newFolder=parentFolder.createFolder(data[i][1] + " SRSS") //Name the new folders here
+  sheet.getRange(i + 1,22).setValue(newFolder.getId());
+  var newFile = createGradeSpreadsheet(data[0][21], data[i][1], newFolder.getId());
+  sheet.getRange(i + 1,24).setValue(newFile);
+  };
+}
+//** Switch it from copying files to recursively buildling folder structures. */
+//**Updater -- Check existing folder contents, add (and rename) any files from template not already in core */
+
+function createGradeSpreadsheet(template, school, location) {
+  var name = school + " SRSS"; //Name the spreadsheets here
+  var moveToLocation = DriveApp.getFolderById(location);
+  var copySchoolSheet = DriveApp.getFileById(template).makeCopy(name, moveToLocation);
+  Logger.log("copySchoolSheet.id: " + copySchoolSheet.getId());
+  return copySchoolSheet.getId();
+}
+
+function checkForBlankSchoolValues(data){
+  var noSchoolName = [];
+  var noSchoolAbbrev = [];
+  for( e = 2; e < lastRow +1 ; e++) {
+    if (data[e][1].isBlank()) {
+      noSchoolName.push(data[e][2]);
+    };
+    if (data[e][2].isBlank()) {
+      noSchoolAbbrev.push(data[e][1]);
+    };
+    };
+
+  return ([])
+
+}
+
+function getLastRowSpecial(range){
+  var rowNum = 0;
+  var blank = false;
+  Logger.log("range: " + range);
+   Logger.log("range length: " + range.length);
+  for(var row = 0; row < range.length; row++){
+
+    if(range[row][0] === "" && !blank){
+      rowNum = row;
+      blank = true;
+ 
+    }else if(range[row][0] !== ""){
+      blank = false;
+    };
+  };
+  return rowNum;
+};
