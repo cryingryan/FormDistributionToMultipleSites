@@ -1,0 +1,147 @@
+//////////////// CSV CREATION ///////////////////
+/*
+ * script to export data of the named sheet as an individual csv files
+ * sheet downloaded to Google Drive and then downloaded as a CSV file
+ * file named according to the name of the sheet
+ * original author: Michael Derazon (https://gist.github.com/mderazon/9655893)
+*/
+
+function saveAsCSV() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet(); 
+  var sheet = ss.getSheetByName('Mask_Exemption_PSUpdate');
+
+  var folderLoc = "__________________________"; //Where you want the most recent pull to go
+  var folder = DriveApp.getFolderById(folderLoc);
+  var oldCopiesFolderLoc = "____________________"; //Where you want the backups to be stored
+  var oldCopiesFolder = DriveApp.getFolderById(oldCopiesFolderLoc);
+
+  // append ".csv" extension to the sheet name
+  fileName = sheet.getName() + ".csv";
+
+  //check if file already exists, if it does, copy and rename. delete data from original. repopulate with what's below
+  var alreadyExistsID = getFileByName(fileName, folder);
+  Logger.log("Already Exists ID: " + alreadyExistsID);
+  var alreadyExistsFileName = DriveApp.getFileById(alreadyExistsID);
+  Logger.log("Already Exists File: " + alreadyExistsFileName);
+
+  if (alreadyExistsID !== null || alreadyExistsID !== false) {
+    // var oldFile = DriveApp.getFileById(alreadyExists);
+    //get Date file created
+    var timezone = Session.getScriptTimeZone();
+    var timestamp_format = "yyyyMMdd H:mm:ss";
+    var date = alreadyExistsFileName.getDateCreated();
+    var formattedDate = Utilities.formatDate(date, timezone, timestamp_format);
+    Logger.log("Date: " + Utilities.formatDate(date, timezone, timestamp_format));
+
+    var oldFile = DriveApp.getFileById(alreadyExistsID);
+    oldFile.makeCopy(formattedDate + " OLD " + sheet.getName() + ".csv", oldCopiesFolder);
+    oldFile.setTrashed(true);
+  }
+
+  // convert all available sheet data to csv format
+  var csvFile = convertRangeToCsvFile_(fileName, sheet);
+
+  // create a file in the Docs List with the given name and the csv data
+  var file = folder.createFile(fileName, csvFile);
+
+}
+
+
+function convertRangeToCsvFile_(csvFileName, sheet) {
+  // get available data range in the spreadsheet
+  var activeRange = sheet.getDataRange();
+  Logger.log(activeRange.getValues().length);
+  try {
+    var data = activeRange.getValues();
+    var csvFile = undefined;
+
+    // loop through the data in the range and build a string with the csv data
+    if (data.length > 1) {
+      var csv = "";
+      for (var row = 0; row < data.length; row++) {
+        for (var col = 0; col < data[row].length; col++) {
+          if (data[row][col].toString().indexOf(",") != -1) {
+            data[row][col] = "\"" + data[row][col] + "\"";
+          }
+        }
+
+        // join each row's columns
+        // add a carriage return to end of each row, except for the last one
+        if (row < data.length-1) {
+          csv += data[row].join(",") + "\r\n";
+        }
+        else {
+          csv += data[row];
+        }
+      }
+      csvFile = csv;
+    }
+    return csvFile;
+  }
+  catch(err) {
+    Logger.log(err);
+    Browser.msgBox(err);
+  }
+}
+
+function getFileByName(fileName, fileInFolder){
+  //https://yagisanatode.com/2018/10/05/google-apps-script-get-file-by-name-with-optional-parent-folder-crosscheck/
+  //all the folderIDText are extra but I left them to help with error checking, if necessary
+  var filecount = 0;
+  var dupFileArray = [];
+  var folderIDText = "";
+  var folderID = 0;
+  
+  var files = DriveApp.getFilesByName(fileName);
+  
+  while(files.hasNext()){
+    var file = files.next();
+    dupFileArray.push(file.getId());
+    
+    filecount++;
+  };
+  
+  if(filecount > 1){
+    if(typeof fileInFolder === 'undefined'){
+        folderIDText = {"id":false,"error":"More than one file with name: "+fileName+". \nTry adding the file's folder name as a reference in Argument 2 of this function."};
+        folderID = false;
+    }else{
+     //iterate through list of files with the same name
+     for(fl = 0; fl < dupFileArray.length; fl++){
+       var activeFile = DriveApp.getFileById(dupFileArray[fl]);
+       var folders = activeFile.getParents();
+       var folder = ""
+       var foldercount = 0;
+      
+       //Get the folder name for each file
+       while(folders.hasNext()){
+         folder = folders.next().getName();
+         foldercount++;
+       };
+      
+       if(folder === fileInFolder && foldercount > 1){
+         folderIDText = {"id":false,"error":"There is more than one parent folder: "+fileInFolder+" for file "+fileName};
+         folderID = false;
+       };
+      
+       if(folder === fileInFolder){
+          folderIDText = {"id":dupFileArray[fl],"error":false};
+          folderID = false;
+          
+       }else{
+         folderIDText = {"id":false,"error":"There are multiple files named: "+fileName+". \nBut none of them are in folder, "+fileInFolder};
+         folderID = false;
+       };
+     };
+   };
+  
+  }else if(filecount === 0){
+      folderIDText = {"id":false,"error":"No file in your drive exists with name: "+fileName};
+      folderID = false;
+  }else{ //IF there is only 1 file with fileName
+    folderIDText = {"id":dupFileArray[0],"error":false};
+    folderID = dupFileArray[0];
+    };
+  Logger.log(folderIDText);
+  return folderID;
+};
